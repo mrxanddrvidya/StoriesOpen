@@ -517,8 +517,8 @@ def send_story_email(story_content, story_title, index, mp3_path=None):
     subject_suffix = " + MP3" if has_mp3 else ""
     
     payload = {
-        "from": "onboarding@resend.dev",
-        "to": "bhuyan.pradip@gmail.com",
+        "from": "PBAppNS <onboarding@resend.dev>",
+        "to": "mrxanddrvidya2023@gmail.com",
         "subject": f"Story {index}: {story_title_clean}{subject_suffix}",
         "text": f"Your story #{index} ({story_title_clean}) is attached.{' MP3 audiobook included.' if has_mp3 else ''}",
         "attachments": attachments
