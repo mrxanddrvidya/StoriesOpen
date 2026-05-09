@@ -205,39 +205,40 @@ OPENROUTER_MODELS = [
 ]
 
 def call_openrouter(prompt, max_tokens=3500, temperature=0.7, retries=3):
-    """Call OpenRouter with multiple model fallbacks."""
-    
-    # Debug: Check if API key exists
+    """Call OpenRouter with updated working models."""
     api_key = os.getenv("OPENROUTER_API_KEY")
-    
     if not api_key:
-        # Try alternative environment variable names
-        api_key = os.getenv("OPENROUTER_KEY")
-    if not api_key:
-        api_key = os.getenv("OR_API_KEY")
+        return None, "❌ OPENROUTER_API_KEY secret missing. Add it in Space settings."
     
-    if not api_key:
-        return None, "❌ OPENROUTER_API_KEY not found in secrets. Make sure it's added exactly as 'OPENROUTER_API_KEY'"
-    
-    # Debug: Show key format (first few chars)
-    print(f"API Key found: {api_key[:15]}... (length: {len(api_key)})")
+    # Validate key format
+    if not api_key.startswith('sk-or-v1-'):
+        return None, f"❌ Invalid API key format. Key should start with 'sk-or-v1-', not '{api_key[:10]}'"
     
     client = OpenAI(base_url=OPENROUTER_BASE_URL, api_key=api_key, timeout=120)
     
-    system_prompt = """You are a direct, no-nonsense creative writer. You write adult fiction in clear, simple English. You NEVER use metaphors, similes, or poetic language. You write short sentences. You describe actions and dialogue directly. You NEVER write abstract nonsense. Write simply and directly. No poetry. No metaphors."""
+    system_prompt = """You are a direct, no-nonsense creative writer. You write adult fiction in clear, simple English. You NEVER use metaphors, similes, or poetic language. You write short sentences. You describe actions and dialogue directly. You NEVER write abstract nonsense. Write like: "He put his hand on her chest. She moaned." Simple. Direct. Concrete. No literary flourishes."""
     
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": prompt}
     ]
     
+    # Updated working models list
+    models_to_try = [
+        "openrouter/auto",                          # Auto-selects best available
+        "mistralai/mixtral-8x7b-instruct",         # Good quality, reliable
+        "google/gemini-2.0-flash-exp:free",         # Free Gemini (fast)
+        "meta-llama/llama-3.2-3b-instruct:free",   # Free Llama 3.2
+        "microsoft/phi-3-mini-128k-instruct:free",  # Free Phi-3
+        "openrouter/free"                          # Generic free fallback
+    ]
+    
     last_error = None
     
-    for model in OPENROUTER_MODELS:
+    for model in models_to_try:
         for attempt in range(retries):
             try:
-                print(f"Trying model: {model} (attempt {attempt + 1})")
-                
+                print(f"Trying model: {model}")
                 completion = client.chat.completions.create(
                     model=model,
                     messages=messages,
@@ -251,31 +252,28 @@ def call_openrouter(prompt, max_tokens=3500, temperature=0.7, retries=3):
                         "X-Title": "Story Generator"
                     }
                 )
-                
                 text = completion.choices[0].message.content
                 if text and len(text.strip()) > 200:
-                    print(f"Success with model: {model}")
                     text = clean_garbage_output(text)
+                    print(f"Success with model: {model}")
                     return text, None
-                    
             except Exception as e:
                 error_msg = str(e)
                 print(f"Model {model} failed: {error_msg[:100]}")
                 last_error = error_msg
                 
-                # Check for specific errors
-                if "authentication" in error_msg.lower() or "api key" in error_msg.lower():
+                # Don't retry on certain errors
+                if "401" in error_msg or "authentication" in error_msg.lower():
                     return None, f"Authentication error: {error_msg[:100]}"
-                if "insufficient_quota" in error_msg.lower() or "credits" in error_msg.lower():
-                    return None, f"Insufficient credits: {error_msg[:100]}"
-                    
+                if "insufficient_quota" in error_msg.lower():
+                    return None, f"Insufficient credits. Add credits at https://openrouter.ai/credits"
+                
                 if attempt < retries - 1:
                     time.sleep(2 ** attempt)
                     continue
                 continue
     
     return None, f"All models failed. Last error: {last_error[:200]}"
-
 
 def generate_with_progress(prompt, max_tokens, step_description):
     with st.spinner(f"📝 {step_description}..."):
