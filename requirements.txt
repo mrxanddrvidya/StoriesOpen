@@ -1,0 +1,8 @@
+streamlit
+openai
+requests
+edge-tts
+backoff
+Pillow
+reportlab
+fpdf2
