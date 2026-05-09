@@ -193,28 +193,51 @@ DEFAULT_ELEMENTS = [
 
 # ------------------- OpenRouter API Configuration -------------------
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-OPENROUTER_MODEL = "openrouter/free"
+
+# Updated model list - try these in order
+OPENROUTER_MODELS = [
+    "openrouter/auto",  # auto-selects best available (recommended)
+    "anthropic/claude-3-haiku-20240307",  # paid but fast
+    "mistralai/mixtral-8x7b-instruct",  # good quality
+    "google/gemini-pro",  # good quality
+    "meta-llama/llama-3-8b-instruct",  # free tier
+    "cognitivecomputations/dolphin-mixtral-8x7b:free"  # older free model
+]
 
 def call_openrouter(prompt, max_tokens=3500, temperature=0.7, retries=3):
-    """Lower temperature (0.7) reduces poetic garbage output."""
+    """Call OpenRouter with multiple model fallbacks."""
+    
+    # Debug: Check if API key exists
     api_key = os.getenv("OPENROUTER_API_KEY")
+    
     if not api_key:
-        return None, "❌ OPENROUTER_API_KEY secret missing. Add it in Space settings."
+        # Try alternative environment variable names
+        api_key = os.getenv("OPENROUTER_KEY")
+    if not api_key:
+        api_key = os.getenv("OR_API_KEY")
     
-    client = OpenAI(base_url=OPENROUTER_BASE_URL, api_key=api_key)
+    if not api_key:
+        return None, "❌ OPENROUTER_API_KEY not found in secrets. Make sure it's added exactly as 'OPENROUTER_API_KEY'"
     
-    system_prompt = """You are a direct, no-nonsense creative writer. You write adult fiction in clear, simple English. You NEVER use metaphors, similes, or poetic language. You write short sentences. You describe actions and dialogue directly. You NEVER write abstract nonsense. You write like: "He put his hand on her chest. She moaned. He entered her." Simple. Direct. Concrete. No literary flourishes."""
+    # Debug: Show key format (first few chars)
+    print(f"API Key found: {api_key[:15]}... (length: {len(api_key)})")
+    
+    client = OpenAI(base_url=OPENROUTER_BASE_URL, api_key=api_key, timeout=120)
+    
+    system_prompt = """You are a direct, no-nonsense creative writer. You write adult fiction in clear, simple English. You NEVER use metaphors, similes, or poetic language. You write short sentences. You describe actions and dialogue directly. You NEVER write abstract nonsense. Write simply and directly. No poetry. No metaphors."""
     
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": prompt}
     ]
     
-    models_to_try = [OPENROUTER_MODEL, "cognitivecomputations/dolphin-mixtral-8x7b:free"]
+    last_error = None
     
-    for model in models_to_try:
+    for model in OPENROUTER_MODELS:
         for attempt in range(retries):
             try:
+                print(f"Trying model: {model} (attempt {attempt + 1})")
+                
                 completion = client.chat.completions.create(
                     model=model,
                     messages=messages,
@@ -222,20 +245,37 @@ def call_openrouter(prompt, max_tokens=3500, temperature=0.7, retries=3):
                     temperature=temperature,
                     frequency_penalty=0.5,
                     presence_penalty=0.5,
-                    stream=False
+                    stream=False,
+                    extra_headers={
+                        "HTTP-Referer": "https://story-generator.app",
+                        "X-Title": "Story Generator"
+                    }
                 )
+                
                 text = completion.choices[0].message.content
                 if text and len(text.strip()) > 200:
-                    # Clean garbage from response
+                    print(f"Success with model: {model}")
                     text = clean_garbage_output(text)
                     return text, None
+                    
             except Exception as e:
+                error_msg = str(e)
+                print(f"Model {model} failed: {error_msg[:100]}")
+                last_error = error_msg
+                
+                # Check for specific errors
+                if "authentication" in error_msg.lower() or "api key" in error_msg.lower():
+                    return None, f"Authentication error: {error_msg[:100]}"
+                if "insufficient_quota" in error_msg.lower() or "credits" in error_msg.lower():
+                    return None, f"Insufficient credits: {error_msg[:100]}"
+                    
                 if attempt < retries - 1:
                     time.sleep(2 ** attempt)
                     continue
                 continue
     
-    return None, "All models failed. Check your OpenRouter API key."
+    return None, f"All models failed. Last error: {last_error[:200]}"
+
 
 def generate_with_progress(prompt, max_tokens, step_description):
     with st.spinner(f"📝 {step_description}..."):
@@ -244,25 +284,42 @@ def generate_with_progress(prompt, max_tokens, step_description):
 
 # ------------------- Test API -------------------
 def test_api():
+    """Test API with detailed error reporting."""
     api_key = os.getenv("OPENROUTER_API_KEY")
+    
     if not api_key:
-        return False, "OPENROUTER_API_KEY secret missing. Add it in Space settings."
+        api_key = os.getenv("OPENROUTER_KEY")
+    if not api_key:
+        api_key = os.getenv("OR_API_KEY")
     
-    client = OpenAI(base_url=OPENROUTER_BASE_URL, api_key=api_key)
-    try:
-        completion = client.chat.completions.create(
-            model="openrouter/free",
-            messages=[{"role": "user", "content": "Reply with exactly: OK"}],
-            max_tokens=5,
-            temperature=0.0
-        )
-        reply = completion.choices[0].message.content.strip()
-        if reply == "OK":
-            return True, "API works with OpenRouter!"
-    except Exception as e:
-        pass
+    if not api_key:
+        return False, "OPENROUTER_API_KEY not found in secrets. Add it as 'OPENROUTER_API_KEY' in Space Settings → Secrets"
     
-    return False, "API test failed. Check your OpenRouter API key."
+    # Show key format for debugging
+    st.code(f"Key format: {api_key[:15]}... (length: {len(api_key)})\nExpected format: sk-or-v1-...")
+    
+    client = OpenAI(base_url=OPENROUTER_BASE_URL, api_key=api_key, timeout=30)
+    
+    # Try multiple models for testing
+    test_models = ["openrouter/auto", "openrouter/free", "mistralai/mixtral-8x7b-instruct"]
+    
+    for model in test_models:
+        try:
+            st.info(f"Testing model: {model}...")
+            completion = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": "Reply with exactly: OK"}],
+                max_tokens=5,
+                temperature=0.0
+            )
+            reply = completion.choices[0].message.content.strip()
+            if reply == "OK" or "OK" in reply:
+                return True, f"API works with {model}!"
+        except Exception as e:
+            st.warning(f"Model {model} failed: {str(e)[:100]}")
+            continue
+    
+    return False, "All models failed. Check your API key and credits at https://openrouter.ai/keys"
 
 # ------------------- Story Generation Functions -------------------
 def generate_global_outline(num_chapters, topic):
