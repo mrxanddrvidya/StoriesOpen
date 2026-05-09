@@ -194,14 +194,14 @@ DEFAULT_ELEMENTS = [
 # ------------------- OpenRouter API Configuration -------------------
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
-# Updated model list - try these in order
-OPENROUTER_MODELS = [
-    "openrouter/auto",  # auto-selects best available (recommended)
-    "anthropic/claude-3-haiku-20240307",  # paid but fast
-    "mistralai/mixtral-8x7b-instruct",  # good quality
-    "google/gemini-pro",  # good quality
-    "meta-llama/llama-3-8b-instruct",  # free tier
-    "cognitivecomputations/dolphin-mixtral-8x7b:free"  # older free model
+# Updated list of working OpenRouter models (as of 2025)
+models_to_try = [
+    "openrouter/auto",                          # Auto-selects best available
+    "mistralai/mixtral-8x7b-instruct",         # Good quality
+    "google/gemini-2.0-flash-exp:free",         # Free Gemini
+    "meta-llama/llama-3.2-3b-instruct:free",   # Free Llama
+    "microsoft/phi-3-mini-128k-instruct:free",  # Free Phi-3
+    "openrouter/free"                          # Generic free tier
 ]
 
 def call_openrouter(prompt, max_tokens=3500, temperature=0.7, retries=3):
@@ -275,6 +275,7 @@ def call_openrouter(prompt, max_tokens=3500, temperature=0.7, retries=3):
     
     return None, f"All models failed. Last error: {last_error[:200]}"
 
+
 def generate_with_progress(prompt, max_tokens, step_description):
     with st.spinner(f"📝 {step_description}..."):
         result, err = call_openrouter(prompt, max_tokens)
@@ -282,28 +283,27 @@ def generate_with_progress(prompt, max_tokens, step_description):
 
 # ------------------- Test API -------------------
 def test_api():
-    """Test API with detailed error reporting."""
+    """Test API with updated working models."""
     api_key = os.getenv("OPENROUTER_API_KEY")
-    
     if not api_key:
-        api_key = os.getenv("OPENROUTER_KEY")
-    if not api_key:
-        api_key = os.getenv("OR_API_KEY")
+        return False, "OPENROUTER_API_KEY secret missing. Add it in Space settings."
     
-    if not api_key:
-        return False, "OPENROUTER_API_KEY not found in secrets. Add it as 'OPENROUTER_API_KEY' in Space Settings → Secrets"
-    
-    # Show key format for debugging
-    st.code(f"Key format: {api_key[:15]}... (length: {len(api_key)})\nExpected format: sk-or-v1-...")
+    if not api_key.startswith('sk-or-v1-'):
+        return False, f"Invalid key format. Key should start with 'sk-or-v1-', not '{api_key[:10]}'"
     
     client = OpenAI(base_url=OPENROUTER_BASE_URL, api_key=api_key, timeout=30)
     
-    # Try multiple models for testing
-    test_models = ["openrouter/auto", "openrouter/free", "mistralai/mixtral-8x7b-instruct"]
+    # Test these working models
+    test_models = [
+        "openrouter/auto",
+        "mistralai/mixtral-8x7b-instruct",
+        "google/gemini-2.0-flash-exp:free"
+    ]
     
+    results = []
     for model in test_models:
         try:
-            st.info(f"Testing model: {model}...")
+            st.info(f"Testing: {model}")
             completion = client.chat.completions.create(
                 model=model,
                 messages=[{"role": "user", "content": "Reply with exactly: OK"}],
@@ -311,14 +311,15 @@ def test_api():
                 temperature=0.0
             )
             reply = completion.choices[0].message.content.strip()
-            if reply == "OK" or "OK" in reply:
-                return True, f"API works with {model}!"
+            if "OK" in reply:
+                return True, f"✅ API works with {model}!"
         except Exception as e:
-            st.warning(f"Model {model} failed: {str(e)[:100]}")
+            error_msg = str(e)
+            results.append(f"{model}: {error_msg[:50]}")
             continue
     
-    return False, "All models failed. Check your API key and credits at https://openrouter.ai/keys"
-
+    return False, f"All models failed.\n" + "\n".join(results)
+    
 # ------------------- Story Generation Functions -------------------
 def generate_global_outline(num_chapters, topic):
     outline_prompt = f"""
