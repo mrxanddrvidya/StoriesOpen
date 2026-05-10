@@ -419,7 +419,7 @@ def combine_chapters(chapters, outline):
 def generate_complete_story(topic):
     """Generate a complete story from a premise."""
     st.info(f"📖 Generating outline for: {topic[:80]}...")
-    outline, err = generate_global_outline(, topic)
+    outline, err = generate_global_outline(NUM_CHAPTERS, topic)  # FIXED: Added NUM_CHAPTERS
     if err:
         return None, f"Outline failed: {err}"
     
@@ -427,8 +427,8 @@ def generate_complete_story(topic):
     prev_text = ""
     total_start = time.time()
     
-    for ch in range(1,  + 1):
-        st.info(f"✍️ Writing Chapter {ch} of {}...")
+    for ch in range(1, NUM_CHAPTERS + 1):  # FIXED: Added NUM_CHAPTERS
+        st.info(f"✍️ Writing Chapter {ch} of {NUM_CHAPTERS}...")  # FIXED: Added NUM_CHAPTERS
         start_ch = time.time()
         chapter_text, err = generate_single_chapter(ch, outline, prev_text)
         if err or not chapter_text:
@@ -449,6 +449,7 @@ def generate_complete_story(topic):
     stats = {"total_time": total_time, "word_count": word_count, "chapters": len(chapters_done)}
     
     return full_story, stats
+
 
 # ------------------- MP3 Generation (with text cleaning) -------------------
 def generate_mp3_sync(text, story_title, timestamp, voice="en-IN-NeerjaNeural"):
