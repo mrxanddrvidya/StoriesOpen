@@ -187,7 +187,7 @@ DEFAULT_ELEMENTS = [
     "Breast development", "Waist training corset", "High heels training",
     "Saree draping", "Salwar kameez", "Lehenga", "Indian jewelry",
     "Breast play and nipple sucking", "Blow jobs while kneeling",
-    "Public outings as a woman", "Ear piercing", "Nose piercing",
+    "Public outings as a woman", "Ear piercing", "Nose piercing", "feminine moans", 
     "Lipstick - trying different shades", "Eye makeup", "Nail polish", "Bangles", "Anklets"
 ]
 
@@ -392,7 +392,7 @@ Previous chapter's ending:
 **MANDATORY ELEMENTS:**
 - Bra & nipple scene – unhooking bra, fondling, sucking, breast pump, butt plug.
 - Blow job – kneeling, deepthroat.
-- Anal sex from behind.
+- Anal sex from behind, feminine moans. 
 - Roleplay sex games.
 
 **Naming rule:** Before name change: use male name and he/him. After: use feminine name and she/her.
