@@ -170,7 +170,7 @@ if "generated_mp3_title" not in st.session_state:
 def get_checkpoint_file():
     return f"story_checkpoint_{st.session_state.story_id}.json"
 
-st.title("📖 SG Story Generator")
+st.title("📖 SG Generator")
 st.markdown("*Batch story generation with automatic email delivery and MP3 audiobook*")
 
 # ------------------- Fixed Settings (Hardcoded - No Sidebar) -------------------
@@ -178,7 +178,7 @@ SLOW_BURN_MODE = True
 USE_CAFFEINATE = True
 TONE = "Brutal"
 ADULT_LEVEL = 10
-NUM_CHAPTERS = 6
+NUM_CHAPTERS = 8
 EDGE_VOICE = "en-IN-NeerjaNeural"
 
 # ------------------- Default Feminine Story Elements -------------------
@@ -390,9 +390,10 @@ Previous chapter's ending:
 {style_instructions}
 
 **MANDATORY ELEMENTS:**
-- Bra & nipple scene – unhooking bra, fondling, sucking, breast pump.
+- Bra & nipple scene – unhooking bra, fondling, sucking, breast pump, butt plug.
 - Blow job – kneeling, deepthroat.
 - Anal sex from behind.
+- Roleplay sex games.
 
 **Naming rule:** Before name change: use male name and he/him. After: use feminine name and she/her.
 
@@ -418,7 +419,7 @@ def combine_chapters(chapters, outline):
 def generate_complete_story(topic):
     """Generate a complete story from a premise."""
     st.info(f"📖 Generating outline for: {topic[:80]}...")
-    outline, err = generate_global_outline(NUM_CHAPTERS, topic)
+    outline, err = generate_global_outline(, topic)
     if err:
         return None, f"Outline failed: {err}"
     
@@ -426,8 +427,8 @@ def generate_complete_story(topic):
     prev_text = ""
     total_start = time.time()
     
-    for ch in range(1, NUM_CHAPTERS + 1):
-        st.info(f"✍️ Writing Chapter {ch} of {NUM_CHAPTERS}...")
+    for ch in range(1,  + 1):
+        st.info(f"✍️ Writing Chapter {ch} of {}...")
         start_ch = time.time()
         chapter_text, err = generate_single_chapter(ch, outline, prev_text)
         if err or not chapter_text:
